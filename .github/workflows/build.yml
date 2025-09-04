@@ -2,9 +2,6 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "*"
 
 jobs:
   build:
@@ -134,4 +131,4 @@ jobs:
           draft: true
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
