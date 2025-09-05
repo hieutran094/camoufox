@@ -1,0 +1,69 @@
+diff --git a/widget/windows/nsWindow.cpp b/widget/windows/nsWindow.cpp
+index 1234567..89abcde 100644
+--- a/widget/windows/nsWindow.cpp
++++ b/widget/windows/nsWindow.cpp
+@@
+ #include "mozilla/WidgetUtils.h"
+ #include "mozilla/WindowsVersion.h"
++#include <shobjidl.h>
+
++// Static helper for setting badge via overlay icon
++void nsWindow::SetOverlayBadge(HWND hwnd, const nsString& aText) {
++  if (!hwnd) {
++    return;
++  }
++  ITaskbarList3* taskbar = nullptr;
++  HRESULT hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER,
++                                IID_ITaskbarList3, (void**)&taskbar);
++  if (SUCCEEDED(hr) && taskbar) {
++    taskbar->HrInit();
++    // For simplicity, just set the default application icon as overlay.
++    // TODO: If you want text/number, replace with CreateIcon API.
++    HICON hIcon = LoadIcon(NULL, IDI_INFORMATION);
++    taskbar->SetOverlayIcon(hwnd, hIcon, "badge");
++    DestroyIcon(hIcon);
++    taskbar->Release();
++  }
++}
++
+diff --git a/widget/windows/nsWindow.h b/widget/windows/nsWindow.h
+index abcdef0..1234567 100644
+--- a/widget/windows/nsWindow.h
++++ b/widget/windows/nsWindow.h
+@@
+   nsresult             SetWindowClipRegion(const nsTArray<HRGN>& aRegions,
+                                            bool aIntersectWithExisting) override;
++
++  // Static helper to set badge overlay icon
++  static void SetOverlayBadge(HWND hwnd, const nsString& aText);
+ 
+ private:
+   void                 RegisterKeyboardHook();
+diff --git a/toolkit/xre/nsAppRunner.cpp b/toolkit/xre/nsAppRunner.cpp
+index 9876543..7654321 100644
+--- a/toolkit/xre/nsAppRunner.cpp
++++ b/toolkit/xre/nsAppRunner.cpp
+@@
+   ar->DefineCommandLineArg("wait-for-browser", options::Arg, options::Hidden,
+                            "Wait for a browser window before exiting");
++
++  ar->DefineCommandLineArg("badge", options::Arg, options::Canonical,
++                           "Set a badge text on the taskbar icon");
+@@
+   if (CheckArg("no-remote")) {
+     gDoMigration = false;
+   }
++
++  // Handle --badge option (Windows only)
++#ifdef XP_WIN
++  {
++    nsAutoString badgeValue;
++    if (CheckArg("badge", &badgeValue) == ARG_FOUND) {
++      // Find the main Firefox window
++      HWND hwnd = FindWindowW(L"MozillaWindowClass", NULL);
++      if (hwnd) {
++        nsWindow::SetOverlayBadge(hwnd, badgeValue);
++      }
++    }
++  }
++#endif
